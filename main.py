@@ -27,7 +27,7 @@ wait(30000)
 # Write your program here
 
 # Play a sound.
-#ev3.speaker.beep()
+ev3.speaker.beep("test")
 
 # Run the motor up to 500 degrees per second. To a target angle of 90 degrees.
 
