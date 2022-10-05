@@ -5,62 +5,47 @@ from pybricks.ev3devices import Motor as Motor
 from pybricks.ev3devices import TouchSensor as TouchSensor
 from pybricks.parameters import Port
 from pybricks.parameters import Direction
+from pybricks.parameters import Stop
 from pybricks.tools import wait
+#import threading
 
+def run_time_motors(motor1,motor2):
+    motor1.run_target(500,1000,then=Stop.BRAKE,wait=False)
+    motor2.run_target(500,1000,then=Stop.BRAKE,wait=True)
+    ev3.speaker.beep()
+    wait(1000)
+    motor1.run_target(500,0,then=Stop.BRAKE,wait=False)
+    motor2.run_target(500,0,then=Stop.BRAKE,wait=True)
+    ev3.speaker.beep()
+    return True
+
+test_touch = TouchSensor(Port.S2)
+        
 # Initialize the EV3 Brick.
 ev3 = EV3Brick()
 #touch = TouchSensor(Port.A)
-test_motor = Motor(Port.B)
+test_motor1 = Motor(Port.B)
+test_motor2 = Motor(Port.C)
+
+test_motor1.run_target(1000,0,then=Stop.BRAKE,wait=True)
+test_motor2.run_target(1000,0,then=Stop.BRAKE,wait=True)
+
 ev3.speaker.say ("Hello... I'm TOBOR :  T, O, B, O, R,")
-ev3.speaker.say ("Please, turn my motor")
+ev3.speaker.say ("Please, press my touch sensor")
+
 i=0
-while i<5:
-    speed = test_motor.speed() # recuperation de la vitesse de Tobor
-    if speed !=0: 
-        wait(1000) # attendre 1 minute
-        test_motor.stop()  # Arreter le moteur
-        ev3.speaker.say("angle... {} {}".format(int (test_motor.angle()),"degree")) # Tobor dit l'angle actuel de son moteur
-        test_motor.run_target(5000,0) # Repositionner le moteur à zero dégré
-        wait(1000) # attendre une minnute
-        test_motor.stop()
-        ev3.speaker.beep() # faire biper la box
-        ev3.speaker.say ("again") # TOBOR veut qu'on tourne à nouveau son moteur
-        i+=1 
-        
-        
-        
-        
-        
-    
-    
-    
-
-
-"""
-# Create your objects here
-
-# Initialize the EV3 Brick.
-ev3 = EV3Brick()
-
-# Initialize a motor at port B.
-test_motor = Motor(Port.B)
-
-#ev3.light.on(color)
-#ev3.speaker.say("SAMUEL... SAMUEL, ")
-test_motor.run(50000)
-
-wait(30000)
-
-# Write your program here
-
-# Play a sound.
-#ev3.speaker.beep()
-
-# Run the motor up to 500 degrees per second. To a target angle of 90 degrees.
-
-#ev3.speaker.beep()
-#test_motor.run_target(5000, 30)
-
-# Play another beep sound.
-#ev3.speaker.beep(frequency=1000, duration=500)
-"""
+motor_activates =False
+while i<2:
+    print("dans la boucle")
+    if test_touch.pressed():
+        if(not motor_activates):
+            run_time_motors(test_motor1,test_motor2)
+            motor_activates = True
+            
+    if( motor_activates and test_motor1.speed()==0 and test_motor2.speed()==0 ):
+        motor_activates=False
+        ev3.speaker.say ("Tobor is stopping...")
+        #print("Tobor is stopping")
+        i+=1  
+  
+#ev3.speaker.say ("Bye Bye")
