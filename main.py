@@ -63,17 +63,17 @@ s1.append(isPathFinish)
 
 def move_forward():
     
-    tank_drive.reset()
+    tank_drive.off()
     distance = ir.value()
     tank_drive.on(-25,-25)
     while distance > 30 and not s1[0]:
         distance = ir.value()
         print(s1[0], file=stderr)
-    tank_drive.reset()
+    tank_drive.off()
     return
 
 def move_target_forward():
-    tank_drive.reset()
+    tank_drive.off()
     distance = ir.value()
     tank_drive.on_for_distance(-25, 150, brake=True, block=True)
     return
@@ -85,15 +85,15 @@ def move_target_forward():
 
 def turn_right():
     # spkr.speak('Right')
-    tank_drive.reset()
-    tank_drive.turn_right(25, 90, brake=True, block=True, error_margin=1, use_gyro=False)
-    # mdiff.turn_to_angle(SpeedRPM(40), 90)
+    tank_drive.off()
+    tank_drive.turn_left(25, 90, brake=True, block=True, error_margin=1, use_gyro=False)
+    # tank_drive.turn_to_angle(25, -90)
     return
 
 def turn_left():
     # spkr.speak('Right')
-    tank_drive.reset()
-    tank_drive.turn_left(25, 90, brake=True, block=True, error_margin=2, use_gyro=False)
+    tank_drive.off()
+    tank_drive.turn_right(25, 90, brake=True, block=True, error_margin=2, use_gyro=False)
     # mdiff.turn_to_angle(SpeedRPM(40), 90)
 
     return
@@ -141,41 +141,50 @@ def path():
     while not s1[1] and not s1[0]: 
         
         if not s1[0]:
-            move_forward()
+            tank_drive.off()
+            distance = ir.value()
+            tank_drive.on(-25,-25)
+            while distance > 30 and not s1[0]:
+                distance = ir.value()
+                print(s1[0], file=stderr)
+            tank_drive.off()
         if not s1[0]:
-            turn_right()
+            tank_drive.off()
+            tank_drive.turn_left(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
         
-        if  isPathfinished():
-            isPathFinish = True
+        if  isPathfinished() and not s1[0]:
+            s1[1] = True
             
-        if not s1[0]:
+            
+        if not s1[1] and not s1[0]:
             move_target_forward()
-        if not s1[0]:
-            turn_right()
-        if not s1[0]:
+        if not s1[0] and not s1[1]:
+            tank_drive.off()
+            tank_drive.turn_left(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
+        if not s1[0] and not s1[1]:
             move_forward()
-        if not s1[0]:
-            turn_left()
+        if not s1[0] and not s1[1]:
+            tank_drive.off()
+            tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
 
-        if isPathfinished():
-            isPathFinish = True
+        if isPathfinished() and not s1[0]:
+            s1[1] = True
             
 
-        if not s1[0]:
+        if not s1[1] and not s1[0]:
             move_target_forward()
-        if not s1[0]:
-            turn_left() 
+        if not s1[0] and not s1[1]:
+            tank_drive.off()
+            tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False) 
     
     while s1[0] and not s1[1]:
         spkr.speak('go home')
-        tank_drive.on_to_coordinates(25,0,0,False,False)
-
-        
-        
+        tank_drive.on_to_coordinates(25,0,0,True,True)
+  
     return
 
 def findTarget():
-    while s1[1] == False:
+    while True:
         # Clear display
         # lcd.clear()
         # Request block
@@ -212,7 +221,7 @@ def findTarget():
         if block[7]  == 0 :
             s1[0] = True
             # t1.terminate()
-            # tank_drive.reset()
+            # tank_drive.off()
             spkr.speak('Target find')
             return
     return
