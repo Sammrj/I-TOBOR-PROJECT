@@ -12,7 +12,7 @@ from ev3dev2.sound import Sound
 from ev3dev2.console import Console
 from ev3dev2.wheel import EV3Tire
 # librairie ev3dev equivalent
-from ev3dev2.motor import OUTPUT_C,OUTPUT_B,MoveDifferential
+from ev3dev2.motor import OUTPUT_C,OUTPUT_B,MoveDifferential,LargeMotor
 from ev3dev2.motor import Motor
 from ev3dev2.motor import MoveTank
 from sys import stderr
@@ -40,8 +40,9 @@ pixy2 = Pixy2(port=1, i2c_address=0x54)
 isFind = False
 object_close = False
 isPathFinish = False
+isTargetCatch = False
+inside = False
 # smm = SharedMemoryManager()
-
 # ev3 = EV3Brick()
 # test_motor1 = Motor(Port.B)
 # test_motor2 = Motor(Port.C)
@@ -60,6 +61,29 @@ manager = multiprocessing.Manager()
 s1 = manager.list()
 s1.append(isFind)
 s1.append(isPathFinish) 
+s1.append(isTargetCatch)
+s1.append(0)
+
+# Connect LargeMotors
+rmotor = LargeMotor(OUTPUT_B)
+lmotor = LargeMotor(OUTPUT_C)
+
+# Defining constants
+X_REF = 158  # X-coordinate of referencepoint
+Y_REF = 150  # Y-coordinate of referencepoint
+KP = 0.4     # Proportional constant PID-controller
+KI = 0.01    # Integral constant PID-controller
+KD = 0.05    # Derivative constant PID-controller
+GAIN = 5    # Gain for motorspeed
+
+# Initializing PID variables
+integral_x = 0
+derivative_x = 0
+last_dx = 0
+integral_y = 0
+derivative_y = 0
+last_dy = 0
+
 
 def move_forward():
     
@@ -134,10 +158,26 @@ def initialisation():
     else :
         spkr.speak('Bloque et libre')
     return
+
+def limit_speed(speed):
+    """ Limit speed in range [-1000,1000] """
+    if speed > 1000:
+        speed = 1000
+    elif speed < -1000:
+        speed = -1000
+    return speed
     
 def path():
     initialisation()
     tank_drive.odometry_start()
+
+    integral_x = 0
+    derivative_x = 0
+    last_dx = 0
+    integral_y = 0
+    derivative_y = 0
+    last_dy = 0
+    
     while not s1[1] and not s1[0]: 
         
         if not s1[0]:
@@ -176,8 +216,44 @@ def path():
         if not s1[0] and not s1[1]:
             tank_drive.off()
             tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False) 
+
     
-    while s1[0] and not s1[1]:
+    # if s1[0] and not s1[2]:
+    spkr.speak("go to target")
+    inside = False
+    while ir.value()>10:
+        # print("infrarouge:"+str(ir.value()),file=stderr)
+        # print("pixy:"+str(s1[3]),file=stderr)
+        x = s1[3][8]
+        y = s1[3][10]
+        if sigs == s1[3][7]*256 + s1[3][6]:
+            # SIG1 detected, control motors
+            print("x : "+str(x),file=stderr)
+            print("y : "+str(y),file=stderr)
+            if x > 135 and  x < 165:
+                inside = True
+                tank_drive.on(-25,-25)
+            elif x <= 135:
+                inside = False
+                tank_drive.turn_right(25, -5, brake=True, block=True, error_margin=1, use_gyro=False) 
+            else :
+                inside = False
+                tank_drive.turn_left(25, -5, brake=True, block=True, error_margin=1, use_gyro=False) 
+        else:
+            # SIG1 not detected, stop motors
+            rmotor.stop()
+            lmotor.stop()
+            # last_dx = 0
+            # last_dy = 0
+            # integral_x = 0
+            # integral_y = 0
+    rmotor.stop()
+    lmotor.stop()
+
+
+
+
+    if s1[0] or  s1[1]:
         spkr.speak('go home')
         tank_drive.on_to_coordinates(25,0,0,True,True)
   
@@ -186,13 +262,14 @@ def path():
 def findTarget():
     while True:
         # Clear display
-        # lcd.clear()
+        lcd.clear()
         # Request block
         
         bus.write_i2c_block_data(address, 0, data)
         # Read block
         block = bus.read_i2c_block_data(address, 0, 20)
-        print(block,file=stderr)
+        s1[3] = block
+        # print(block,file=stderr)
         # Extract data
         sig = block[7]*256 + block[6]
         x = block[9]*256 + block[8]
@@ -217,13 +294,16 @@ def findTarget():
         lcd.draw.rectangle((xa, ya, xb, yb), fill='black')
         # Update display to how rectangle
         lcd.update()
-
-        if block[7]  == 0 :
+        # print("x"+str(block[8]),file=stderr)
+        # print("y"+str(block[10]),file=stderr)
+        
+        if block[7]  == 0 and not s1[0]:
             s1[0] = True
             # t1.terminate()
             # tank_drive.off()
             spkr.speak('Target find')
-            return
+            
+        
     return
 
 # def goHome():
