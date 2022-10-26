@@ -1,38 +1,54 @@
 #!/usr/bin/env pybricks-micropython
+
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor as Motor
+from pybricks.ev3devices import TouchSensor as TouchSensor
 from pybricks.parameters import Port
 from pybricks.parameters import Direction
+from pybricks.parameters import Stop
 from pybricks.tools import wait
 
-# Create your objects here
+#import threading
 
+def run_time_motors(motor1,motor2):
+    motor1.run_target(500,-1000,then=Stop.BRAKE,wait=False)
+    motor2.run_target(500,-1000,then=Stop.BRAKE,wait=True)
+    ev3.speaker.beep()
+    wait(1000)
+    motor1.run_target(500,0,then=Stop.BRAKE,wait=False)
+    motor2.run_target(500,0,then=Stop.BRAKE,wait=True)
+    ev3.speaker.beep()
+    return True
 
-
-
+test_touch = TouchSensor(Port.S2)
+        
 # Initialize the EV3 Brick.
 ev3 = EV3Brick()
+#touch = TouchSensor(Port.A)
+test_motor1 = Motor(Port.B)
+test_motor2 = Motor(Port.C)
 
-# Initialize a motor at port B.
-test_motor = Motor(Port.B)
+test_motor1.run_target(1000,0,then=Stop.BRAKE,wait=True)
+test_motor2.run_target(1000,0,then=Stop.BRAKE,wait=True)
 
-#ev3.light.on(color)
-#ev3.speaker.say("SAMUEL... SAMUEL, ")
-test_motor.run(50000)
+ev3.speaker.say ("Hello... I'm TOBOR")
+ev3.speaker.say ("Please, press my touch sensor")
 
-wait(30000)
-wait(30000)
-
-
-# Write your program here
-
-# Play a sound.
-ev3.speaker.beep("test")
-
-# Run the motor up to 500 degrees per second. To a target angle of 90 degrees.
-
-#ev3.speaker.beep()
-#test_motor.run_target(5000, 30)
-
-# Play another beep sound.
-#ev3.speaker.beep(frequency=1000, duration=500)
+i=0
+motor_activates =False
+while i<1:
+    print("dans la boucle")
+    if test_touch.pressed():
+        if(not motor_activates):
+            run_time_motors(test_motor1,test_motor2)
+            motor_activates = True
+            print("-1")
+            
+    if( motor_activates and test_motor1.speed()==0 and test_motor2.speed()==0 ):
+        motor_activates=False
+        ev3.speaker.say ("Tobor is stopping...")
+        #print("Tobor is stopping")
+        i+=1
+        print("0")  
+  
+#ev3.speaker.say ("Bye Bye")
