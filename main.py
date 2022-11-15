@@ -4,9 +4,8 @@ from smbus import SMBus
 from pixycamev3.pixy2 import Pixy2
 from ev3dev2.display import Display
 from ev3dev2.console import Console
-from ev3dev2.sensor import INPUT_1, INPUT_2
-from ev3dev2.sensor.lego import TouchSensor
-from ev3dev2.sensor.lego import InfraredSensor
+from ev3dev2.sensor import INPUT_1, INPUT_2,INPUT_3
+from ev3dev2.sensor.lego import TouchSensor,InfraredSensor,GyroSensor
 from ev3dev2.port import LegoPort
 from ev3dev2.sound import Sound
 from ev3dev2.console import Console
@@ -31,10 +30,16 @@ import time
 
 # Initalize EV3 Brick ev3dev
 D_WHEEL_MM = 102
+motor1 = Motor(OUTPUT_B)
 motor2 = Motor(OUTPUT_C)
-tank_drive = MoveDifferential(OUTPUT_C, OUTPUT_B,EV3Tire,D_WHEEL_MM)
+tank_drive = MoveDifferential(OUTPUT_B, OUTPUT_C,EV3Tire,D_WHEEL_MM)
 spkr = Sound()
 ir = InfraredSensor(INPUT_2)
+tank_drive.gyro = GyroSensor(INPUT_3)
+tank_drive.gyro.mode = 'GYRO-ANG'
+tank_drive.gyro.calibrate()
+tank_drive.gyro.reset()
+
 ir.mode = 'IR-PROX'
 pixy2 = Pixy2(port=1, i2c_address=0x54)
 isFind = False
@@ -42,6 +47,7 @@ object_close = False
 isPathFinish = False
 isTargetCatch = False
 inside = False
+mode_calibration = False
 # smm = SharedMemoryManager()
 # ev3 = EV3Brick()
 # test_motor1 = Motor(Port.B)
@@ -85,6 +91,7 @@ derivative_y = 0
 last_dy = 0
 
 
+
 def move_forward():
     
     tank_drive.off()
@@ -92,7 +99,7 @@ def move_forward():
     tank_drive.on(-25,-25)
     while distance > 30 and not s1[0]:
         distance = ir.value()
-        print(s1[0], file=stderr)
+        # print(s1[0], file=stderr)
     tank_drive.off()
     return
 
@@ -107,19 +114,41 @@ def move_target_forward():
 #     tank_drive.on_for_degrees(25, 25, 230, brake=True, block=False)
 #     return
 
-def turn_right():
+def turn_right(target):
     # spkr.speak('Right')
-    tank_drive.off()
-    tank_drive.turn_left(25, 90, brake=True, block=True, error_margin=1, use_gyro=False)
+    
+    motor2.on(-25)
+    print("angle de depart"+str(tank_drive.gyro.angle),file=stderr)
+    print("target : "+str(target),file=stderr)
+    while tank_drive.gyro.angle < target :
+        angle1 = tank_drive.gyro.angle
+        print(angle1,file=stderr)
+    motor2.off()
+    angle2 = tank_drive.gyro.angle
+    print("angle d'arret ?: "+str(angle1),file=stderr)
+    print("angle finale ? : "+str(angle2),file=stderr)
+    print("decalage : " +str((angle2 - angle1)),file=stderr)        
     # tank_drive.turn_to_angle(25, -90)
     return
 
-def turn_left():
+def turn_left(target):
+    
     # spkr.speak('Right')
-    tank_drive.off()
-    tank_drive.turn_right(25, 90, brake=True, block=True, error_margin=2, use_gyro=False)
-    # mdiff.turn_to_angle(SpeedRPM(40), 90)
-
+    print("angle de depart"+str(tank_drive.gyro.angle),file=stderr)
+    print("target : "+str(target),file=stderr)
+    motor1.on(-25)
+    while tank_drive.gyro.angle > target :
+        angle1 = tank_drive.gyro.angle
+        print(angle1,file=stderr)
+        pass
+    motor1.off()
+    angle2 = tank_drive.gyro.angle
+    print("target : "+str(target),file=stderr)
+    print("angle d'arret ?: "+str(angle1),file=stderr)
+    print("angle finale ? : "+str(angle2),file=stderr)
+    print("decalage : " +str((angle2 - angle1)),file=stderr)
+            
+    # tank_drive.turn_to_angle(25, -90)
     return
 
 def isPathfinished():
@@ -166,9 +195,26 @@ def limit_speed(speed):
     elif speed < -1000:
         speed = -1000
     return speed
-    
+
+def test():
+    # spkr.speak('Right')
+    motor2.on(-25)
+    while tank_drive.gyro.angle < 89 :
+        angle1 = tank_drive.gyro.angle
+        print(angle1,file=stderr)
+        pass
+    motor2.off()
+    angle2 = tank_drive.gyro.angle
+    print("target : "+str(target),file=stderr)
+    print("angle d'arret : "+str(angle1),file=stderr)
+    print("angle finale : "+str(angle2),file=stderr)
+    print("decalage : " +str(abs(angle2 - angle1)),file=stderr)
+    # tank_drive.turn_to_angle(25, -90)
+    return
+
 def path():
-    initialisation()
+    
+    # initialisation()
     tank_drive.odometry_start()
 
     integral_x = 0
@@ -178,6 +224,11 @@ def path():
     derivative_y = 0
     last_dy = 0
     
+    multiplicateur = 1
+    target = 90
+    targetDroit = 90
+    targetGauche = 90
+
     while not s1[1] and not s1[0]: 
         
         if not s1[0]:
@@ -186,77 +237,135 @@ def path():
             tank_drive.on(-25,-25)
             while distance > 30 and not s1[0]:
                 distance = ir.value()
-                print(s1[0], file=stderr)
+                # print(s1[0], file=stderr)
             tank_drive.off()
         if not s1[0]:
-            tank_drive.off()
-            tank_drive.turn_left(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
+            motor2.on(-25)
+            while tank_drive.gyro.angle < target :
+                angle1 = tank_drive.gyro.angle
+                print(angle1,file=stderr)
+                pass
+            motor2.off()
+            angle2 = tank_drive.gyro.angle
+            print("target : "+str(target),file=stderr)
+            print("angle d'arret ?: "+str(angle1),file=stderr)
+            print("angle finale ? : "+str(angle2),file=stderr)
+            print("decalage : " +str((angle2 - angle1)),file=stderr)        
+            # tank_drive.turn_left(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
         
         if  isPathfinished() and not s1[0]:
             s1[1] = True
             
             
         if not s1[1] and not s1[0]:
-            move_target_forward()
+            tank_drive.off()
+            distance = ir.value()
+            tank_drive.on_for_distance(-25, 150, brake=True, block=True)
+        if not s1[0] and not s1[1]:
+            motor2.on(-25)
+            while tank_drive.gyro.angle < target*2 :
+                angle1 = tank_drive.gyro.angle
+                print(angle1,file=stderr)
+                pass
+            motor2.off()
+            angle2 = tank_drive.gyro.angle
+            print("target : "+str(target),file=stderr)
+            print("angle d'arret ?: "+str(angle1),file=stderr)
+            print("angle finale ? : "+str(angle2),file=stderr)
+            print("decalage : " +str((angle2 - angle1)),file=stderr) 
+            # tank_drive.turn_left(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
         if not s1[0] and not s1[1]:
             tank_drive.off()
-            tank_drive.turn_left(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
-        if not s1[0] and not s1[1]:
-            move_forward()
-        if not s1[0] and not s1[1]:
+            distance = ir.value()
+            tank_drive.on(-25,-25)
+            while distance > 30 and not s1[0]:
+                distance = ir.value()
+                # print(s1[0], file=stderr)
             tank_drive.off()
-            tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
+        if not s1[0] and not s1[1]:
+            motor1.on(-25)
+            while tank_drive.gyro.angle > target :
+                angle1 = tank_drive.gyro.angle
+                print(angle1,file=stderr)
+                pass
+            motor1.off()
+            angle2 = tank_drive.gyro.angle
+            print("target : "+str(target),file=stderr)
+            print("angle d'arret ?: "+str(angle1),file=stderr)
+            print("angle finale ? : "+str(angle2),file=stderr)
+            print("decalage : " +str((angle2 - angle1)),file=stderr)
+            # tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
 
         if isPathfinished() and not s1[0]:
             s1[1] = True
             
 
         if not s1[1] and not s1[0]:
-            move_target_forward()
-        if not s1[0] and not s1[1]:
             tank_drive.off()
-            tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False) 
+            distance = ir.value()
+            tank_drive.on_for_distance(-25, 150, brake=True, block=True)
+        if not s1[0] and not s1[1]:
+            motor1.on(-25)
+            while tank_drive.gyro.angle > 0 :
+                angle1 = tank_drive.gyro.angle
+                print(angle1,file=stderr)
+                pass
+            motor1.off()
+            angle2 = tank_drive.gyro.angle
+            print("target : "+str(target),file=stderr)
+            print("angle d'arret ?: "+str(angle1),file=stderr)
+            print("angle finale ? : "+str(angle2),file=stderr)
+            print("decalage : " +str((angle2 - angle1)),file=stderr)
+            # tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False) 
 
     
-    # if s1[0] and not s1[2]:
-    spkr.speak("go to target")
-    inside = False
-    while ir.value()>10:
-        # print("infrarouge:"+str(ir.value()),file=stderr)
-        # print("pixy:"+str(s1[3]),file=stderr)
-        x = s1[3][8]
-        y = s1[3][10]
-        if sigs == s1[3][7]*256 + s1[3][6]:
-            # SIG1 detected, control motors
-            print("x : "+str(x),file=stderr)
-            print("y : "+str(y),file=stderr)
-            if x > 135 and  x < 165:
-                inside = True
-                tank_drive.on(-25,-25)
-            elif x <= 135:
-                inside = False
-                tank_drive.turn_right(25, -5, brake=True, block=True, error_margin=1, use_gyro=False) 
-            else :
-                inside = False
-                tank_drive.turn_left(25, -5, brake=True, block=True, error_margin=1, use_gyro=False) 
-        else:
-            # SIG1 not detected, stop motors
-            rmotor.stop()
-            lmotor.stop()
-            # last_dx = 0
-            # last_dy = 0
-            # integral_x = 0
-            # integral_y = 0
-    rmotor.stop()
-    lmotor.stop()
+    if s1[0] and not s1[2]:
+        spkr.speak("go to target")
+        inside = False
+        while ir.value()>10:
+            current_angle = tank_drive.gyro.angle
+            # print("infrarouge:"+str(ir.value()),file=stderr)
+            # print("pixy:"+str(s1[3]),file=stderr)
+            x = s1[3][8]
+            y = s1[3][10]
+            tank_drive.off()
+            if sigs == s1[3][7]*256 + s1[3][6]:
+                # SIG1 detected, control motors
+                print("x : "+str(x),file=stderr)
+                # print("y : "+str(y),file=stderr)
+                if x > 135 and  x < 165:
+                    print("inside",file=stderr)
+                    inside = True
+                    tank_drive.on(-25,-25)
+                elif x <= 135:
+                    inside = False
+                    print("right",file=stderr)
+                    print("current_angle : "+str(current_angle),file=stderr)
+                    motor1.on_for_degrees(-25,10)
+                elif x >= 165 :
+                    print("left",file=stderr)
+                    inside = False
+                    motor2.on_for_degrees(-25,10)
+            else:
+                # SIG1 not detected, stop motors
+                rmotor.stop()
+                lmotor.stop()
+                # last_dx = 0
+                # last_dy = 0
+                # integral_x = 0
+                # integral_y = 0
+        rmotor.stop()
+        lmotor.stop()
 
 
 
 
     if s1[0] or  s1[1]:
         spkr.speak('go home')
-        tank_drive.on_to_coordinates(25,0,0,True,True)
-  
+        turn_right(180)
+        move_forward()
+        turn_right(270)
+        move_forward()
     return
 
 def findTarget():
@@ -302,22 +411,41 @@ def findTarget():
             # t1.terminate()
             # tank_drive.off()
             spkr.speak('Target find')
-            
-        
+        print(x)
     return
 
-# def goHome():
-#     spkr.speak('go home')
-#     tank_drive
-#     tank_drive.on_to_coordinates(25,0,0,False,False)
-#     return
+def goHome():
+    spkr.speak('go home')
+    turn_right(180)
+    move_forward()
+    turn_right(270)
+    move_forward()
+    return
 
-# essai du multithreading
-
-spkr.speak('Test')  
-t1 = multiprocessing.Process(target=path)
-# t2 = Thread(target=findTarget)
-t1.start()
-# t2.start()
-findTarget()
-spkr.speak('Fin')
+# MAIN
+if mode_calibration == True:
+    target = 90
+    move_target_forward()
+    turn_right(target)
+    move_target_forward()
+    turn_right(target*2)
+    move_target_forward()
+    turn_right(target*3)
+    move_target_forward()
+    turn_right(target*4)
+    
+    target = -90
+    move_target_forward()
+    turn_left(target)
+    move_target_forward()
+    turn_left(target*2)
+    move_target_forward()
+    turn_left(target*3)
+    move_target_forward()
+    turn_left(target*4)
+else:
+    spkr.speak('Debut')  
+    t1 = multiprocessing.Process(target=path)
+    t1.start()
+    findTarget()
+    spkr.speak('Fin')
