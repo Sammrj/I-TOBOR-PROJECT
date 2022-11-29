@@ -90,8 +90,9 @@ integral_y = 0
 derivative_y = 0
 last_dy = 0
 
-
-
+#Function name : move_forward
+#description : function to make Tobor move forward
+#output : 
 def move_forward():
     
     tank_drive.off()
@@ -103,6 +104,9 @@ def move_forward():
     tank_drive.off()
     return
 
+#Function name : move_target_forward
+#description : function to make Tobor move in front of the target
+#output : 
 def move_target_forward():
     tank_drive.off()
     distance = ir.value()
@@ -114,6 +118,10 @@ def move_target_forward():
 #     tank_drive.on_for_degrees(25, 25, 230, brake=True, block=False)
 #     return
 
+#Function name : turn_right
+#description : function to make Tobor turn to the right
+#input : 
+#output :
 def turn_right(target):
     # spkr.speak('Right')
     
@@ -131,6 +139,10 @@ def turn_right(target):
     # tank_drive.turn_to_angle(25, -90)
     return
 
+#Function name : turn_left
+#description : function to make Tobor turn to the left
+#input : 
+#output :
 def turn_left(target):
     
     # spkr.speak('Right')
@@ -151,6 +163,9 @@ def turn_left(target):
     # tank_drive.turn_to_angle(25, -90)
     return
 
+#Function name : isPathfinished
+#description : function to check the state of the path of Tobor 
+#output :
 def isPathfinished():
     distance = ir.value()
     print(distance, file=stderr)
@@ -159,7 +174,9 @@ def isPathfinished():
     else:
         return True
 
-
+#Function name : initialisation
+#description : function to initialize the robot 
+#output :
 def initialisation():
     # spkr.speak('Initialisation')
     # Retourne la position initial du robot parmis les 4 possibilités
@@ -188,6 +205,10 @@ def initialisation():
         spkr.speak('Bloque et libre')
     return
 
+#Function name : limit_speed
+#description : function to limit the speed of Tobor 
+#input :
+#output :
 def limit_speed(speed):
     """ Limit speed in range [-1000,1000] """
     if speed > 1000:
@@ -196,6 +217,9 @@ def limit_speed(speed):
         speed = -1000
     return speed
 
+#Function name : test
+#description : function to test the angle of turn of Tobor 
+#output :
 def test():
     # spkr.speak('Right')
     motor2.on(-25)
@@ -212,6 +236,9 @@ def test():
     # tank_drive.turn_to_angle(25, -90)
     return
 
+#Function name : path
+#description : function to define the type of path the robot will do 
+#output :
 def path():
     
     # initialisation()
@@ -357,8 +384,10 @@ def path():
         rmotor.stop()
         lmotor.stop()
 
-
-
+#Function name : run_time_motors
+#description : function to define the movement of the 2 motors on the robot  
+#input :
+#output :
 def run_time_motors(motor1,motor2):
     motor1.run_target(500,-1000,then=Stop.BRAKE,wait=False)
     motor2.run_target(500,-1000,then=Stop.BRAKE,wait=True)
@@ -377,6 +406,9 @@ def run_time_motors(motor1,motor2):
         move_forward()
     return
 
+#Function name : findTarget
+#description : function to find the target with the pixy camera on the robot  
+#output :
 def findTarget():
     while True:
         # Clear display
@@ -423,6 +455,9 @@ def findTarget():
         print(x)
     return
 
+#Function name : goHome
+#description : function to make the robot go Home after finishing his path 
+#output :
 def goHome():
     spkr.speak('go home')
     turn_right(180)
@@ -432,6 +467,8 @@ def goHome():
     return
 
 # MAIN
+#description : main script of the Software 
+#output :
 if mode_calibration == True:
     target = 90
     move_target_forward()
