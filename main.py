@@ -1,52 +1,25 @@
 #!/usr/bin/env python3
+ 
 from time import sleep
 from smbus import SMBus
 from pixycamev3.pixy2 import Pixy2
 from ev3dev2.display import Display
-from ev3dev2.console import Console
-from ev3dev2.sensor import INPUT_1, INPUT_2
-from ev3dev2.sensor.lego import TouchSensor
-from ev3dev2.sensor.lego import InfraredSensor
+from ev3dev2.sensor import INPUT_1
 from ev3dev2.port import LegoPort
 from ev3dev2.sound import Sound
-from ev3dev2.console import Console
-from ev3dev2.wheel import EV3Tire
-# librairie ev3dev equivalent
-from ev3dev2.motor import OUTPUT_C,OUTPUT_B,MoveDifferential
-from ev3dev2.motor import Motor
-from ev3dev2.motor import MoveTank
 from sys import stderr
-from threading import Thread
+from Robot import Robot
 import multiprocessing 
-import sys
-import time
-# from pybricks.hubs import EV3Brick
-# from pybricks.ev3devices import Motor as Motor
-# from pybricks.ev3devices import 
-#  as InfraredSensor
-# from pybricks.parameters import Port
-# from pybricks.parameters import Direction
-# from pybricks.parameters import Stop
-# from pybricks.tools import wait
+from time import sleep
 
-# Initalize EV3 Brick ev3dev
-D_WHEEL_MM = 102
-motor2 = Motor(OUTPUT_C)
-tank_drive = MoveDifferential(OUTPUT_C, OUTPUT_B,EV3Tire,D_WHEEL_MM)
-spkr = Sound()
-ir = InfraredSensor(INPUT_2)
-ir.mode = 'IR-PROX'
+# Initalize Class
+robot = Robot()
+global state_of_the_procedure 
+state_of_the_procedure = 'start'
+mode_calibration = False 
+
+# initialization of the pixy
 pixy2 = Pixy2(port=1, i2c_address=0x54)
-isFind = False
-object_close = False
-isPathFinish = False
-# smm = SharedMemoryManager()
-
-# ev3 = EV3Brick()
-# test_motor1 = Motor(Port.B)
-# test_motor2 = Motor(Port.C)
-lcd = Display()
-# ts = TouchSensor(INPUT_2)
 in1 = LegoPort(INPUT_1)
 in1.mode = 'other-i2c'
 sleep(0.5)
@@ -54,145 +27,125 @@ bus = SMBus(3)
 address = 0x54
 sigs = 1
 data = [174, 193, 32, 2, sigs, 1]
-console = Console()
+
+# information from the system
+lcd = Display()
+spkr = Sound()
+
+# variable accesible from all thread
 manager = multiprocessing.Manager()
-# smm.start()
 s1 = manager.list()
-s1.append(isFind)
-s1.append(isPathFinish) 
+s1.append(0)
+s1.append(state_of_the_procedure)
 
-def move_forward():
-    
-    tank_drive.off()
-    distance = ir.value()
-    tank_drive.on(-25,-25)
-    while distance > 30 and not s1[0]:
-        distance = ir.value()
-        print(s1[0], file=stderr)
-    tank_drive.off()
+def path_1():
+    # Snack track
+    while True:
+        angle = 90
+        robot.move_forward()
+        robot.turn_right(angle)
+        if robot.isPathOver("snack_track"):
+            # state_of_the_procedure
+            print("path is over",file=stderr)
+            s1[1] = 'go_home'
+        robot.move_target_forward(150)
+        robot.turn_right(angle*2)
+        robot.move_forward()
+        robot.turn_left(angle)
+        if robot.isPathOver("snack_track"):
+            # state_of_the_procedure
+            print("path is over",file=stderr)
+            s1[1] = 'go_home'
+        robot.move_target_forward(150)
+        robot.turn_left(0)
     return
 
-def move_target_forward():
-    tank_drive.off()
-    distance = ir.value()
-    tank_drive.on_for_distance(-25, 150, brake=True, block=True)
+def path_2():
+    # efficient track
+    robot.turn_right(45)
+    robot.move_target_forward(400)
+    robot.turn_right(405)
+    sleep(1.0)
+    if s1[1] != 'go_to_target' :
+        # state_of_the_procedure
+        robot.turn_left(0)
+        print("path is over",file=stderr)
+        s1[1] = 'go_home'
     return
 
-# def move_backward():
-#     spkr.speak('Right')
-#     tank_drive.on_for_degrees(25, 25, 230, brake=True, block=False)
-#     return
-
-def turn_right():
-    # spkr.speak('Right')
-    tank_drive.off()
-    tank_drive.turn_left(25, 90, brake=True, block=True, error_margin=1, use_gyro=False)
-    # tank_drive.turn_to_angle(25, -90)
+def path_3():
+    # snail track
+    angle = 90
+    distance = 400
+    while True:
+        robot.move_target_forward(distance)
+        robot.turn_right(angle)
+        robot.move_target_forward(distance)
+        robot.turn_right(angle)
+        robot.move_target_forward(distance)
+        robot.turn_right(angle)
+        if robot.isPathOver("snail_track", distance):
+            # state_of_the_procedure
+            print("path is over",file=stderr)
+            s1[1] = 'go_home'
+        angle = angle + 90
+        distance = distance - (distance*(20/100))
     return
 
-def turn_left():
-    # spkr.speak('Right')
-    tank_drive.off()
-    tank_drive.turn_right(25, 90, brake=True, block=True, error_margin=2, use_gyro=False)
-    # mdiff.turn_to_angle(SpeedRPM(40), 90)
+def go_to_target():
+        robot.stop()
+        sleep(1);
+        # spkr.speak("go to target")
+        while robot.get_us_value()>8:
+            current_angle = robot.get_angle_value()
+            x = s1[0][8]
+            y = s1[0][10]
+            robot.stop()
+            if sigs == s1[0][7]*256 + s1[0][6]:
+                # target detected, control motors
+                print("x : "+str(x),file=stderr)
+                if x > 140 and  x < 150:
+                    print("inside",file=stderr)
+                    robot.move_forward()
+                elif x <= 140:
+                    print("right",file=stderr)
+                    print("current_angle : "+str(current_angle),file=stderr)
+                    robot.turn_right_with_precision()
+                elif x >= 150 :
+                    print("left",file=stderr)
+                    robot.turn_left_with_precision()
+                    
+            else:
+                # target not detected, stop motors
+                robot.stop()
+            
+        robot.stop()
+        s1[1] = "catch_target"
+        return
 
-    return
-
-def isPathfinished():
-    distance = ir.value()
-    print(distance, file=stderr)
-    if distance > 40:
-        return False
-    else:
-        return True
-
-
-def initialisation():
-    # spkr.speak('Initialisation')
-    # Retourne la position initial du robot parmis les 4 possibilités
-
-    frontValue = ir.value()
-    turn_right()
-    rightValue = ir.value()
-    # console.text_at("front : %03d" % (frontValue), column=3, row=5, reset_console=False, inverse=True)
-    # console.text_at("front : %03d" % (rightValue), column=3, row=8, reset_console=False, inverse=True)
-
-    # while True:
-    #     frontValue = ir.value()
-    #     print(frontValue)
-    
-    if frontValue >= 40 and rightValue >= 40:
-        spkr.speak('libre et libre')
-        turn_left()
-    elif frontValue >= 40 and rightValue < 40:
-        spkr.speak('libre et bloque')
-        turn_left()
-        turn_left()
-    elif frontValue < 40 and rightValue < 40:
-        spkr.speak('Bloque et bloque')
-        turn_right()
-    else :
-        spkr.speak('Bloque et libre')
-    return
-    
-def path():
-    initialisation()
-    tank_drive.odometry_start()
-    while not s1[1] and not s1[0]: 
+def catch_target():
+    robot.catch_target();
+    s1[1] = 'go_home'
+def go_home():
         
-        if not s1[0]:
-            tank_drive.off()
-            distance = ir.value()
-            tank_drive.on(-25,-25)
-            while distance > 30 and not s1[0]:
-                distance = ir.value()
-                print(s1[0], file=stderr)
-            tank_drive.off()
-        if not s1[0]:
-            tank_drive.off()
-            tank_drive.turn_left(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
-        
-        if  isPathfinished() and not s1[0]:
-            s1[1] = True
-            
-            
-        if not s1[1] and not s1[0]:
-            move_target_forward()
-        if not s1[0] and not s1[1]:
-            tank_drive.off()
-            tank_drive.turn_left(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
-        if not s1[0] and not s1[1]:
-            move_forward()
-        if not s1[0] and not s1[1]:
-            tank_drive.off()
-            tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False)
-
-        if isPathfinished() and not s1[0]:
-            s1[1] = True
-            
-
-        if not s1[1] and not s1[0]:
-            move_target_forward()
-        if not s1[0] and not s1[1]:
-            tank_drive.off()
-            tank_drive.turn_right(25, -90, brake=True, block=True, error_margin=1, use_gyro=False) 
-    
-    while s1[0] and not s1[1]:
-        spkr.speak('go home')
-        tank_drive.on_to_coordinates(25,0,0,True,True)
-  
+    robot.turn_right(180)
+    robot.move_forward()
+    robot.turn_right(270)
+    robot.move_forward()
     return
 
-def findTarget():
+def find_target():
+    first_time = True
     while True:
         # Clear display
-        # lcd.clear()
+        lcd.clear()
         # Request block
         
         bus.write_i2c_block_data(address, 0, data)
         # Read block
         block = bus.read_i2c_block_data(address, 0, 20)
-        print(block,file=stderr)
+        s1[0] = block
+        # print(block,file=stderr)
         # Extract data
         sig = block[7]*256 + block[6]
         x = block[9]*256 + block[8]
@@ -214,30 +167,77 @@ def findTarget():
         xb = x + dx
         yb = y - dy
         # Draw rectangle on display
-        lcd.draw.rectangle((xa, ya, xb, yb), fill='black')
+        # lcd.draw.rectangle((xa, ya, xb, yb), fill='black')
         # Update display to how rectangle
-        lcd.update()
+        # lcd.update()
+        
+        # print("s1[0][8]"+str(s1[0][8]),file=stderr)
+        # print("y"+str(block[10]),file=stderr)
+        
+        if block[7] == 0 and first_time:
+            # condition à réalisé une seule fois
+            first_time = False
+            s1[1] = 'go_to_target'
 
-        if block[7]  == 0 :
-            s1[0] = True
-            # t1.terminate()
-            # tank_drive.off()
-            spkr.speak('Target find')
-            return
+        # print(block[7],file=stderr)
     return
 
-# def goHome():
-#     spkr.speak('go home')
-#     tank_drive
-#     tank_drive.on_to_coordinates(25,0,0,False,False)
-#     return
+# MAIN
+if mode_calibration == True:
 
-# essai du multithreading
+    print(robot.get_us_value(),file = stderr )
+    # robot.turn_right_with_precision()
+    # robot.turn_right_with_precision()
+    # robot.turn_right_with_precision()
+    # robot.catch_target()
+    # robot.drop_target()
+    # angle = 90
+    # robot.move_target_forward(150)
+    # robot.turn_right(angle)
+    # robot.move_target_forward(150)
+    # robot.turn_right(angle*2)
+    # robot.move_target_forward(150)
+    # robot.turn_right(angle*3)
+    # robot.move_target_forward(150)
+    # robot.turn_right(angle*4)
+    # angle = -90
+    # robot.move_target_forward(150)
+    # robot.turn_left(angle)
+    # robot.move_target_forward(150)
+    # robot.turn_left(angle*2)
+    # robot.move_target_forward(150)
+    # robot.turn_left(angle*3)
+    # robot.move_target_forward(150)
+    # robot.turn_left(angle*4)
+else:
+    spkr.speak('Start')  
 
-spkr.speak('Test')  
-t1 = multiprocessing.Process(target=path)
-# t2 = Thread(target=findTarget)
-t1.start()
-# t2.start()
-findTarget()
-spkr.speak('Fin')
+    # Lancement de la procédure
+    thread1 = multiprocessing.Process(target=find_target)
+    thread1.start()
+    thread2 = multiprocessing.Process(target=path_2)
+    while True:
+        if s1[1] == "start" :
+            print("start",file=stderr)
+            s1[1] = 'waiting'
+            thread2 = multiprocessing.Process(target=path_2)
+            thread2.start()
+        elif s1[1] == "go_to_target":
+            print("FIND",file=stderr)
+            s1[1] = 'waiting'
+            thread2.terminate()
+            thread2 = multiprocessing.Process(target=go_to_target)
+            thread2.start()
+        elif s1[1] == "catch_target":
+            print("CATCH",file=stderr)
+            s1[1] = 'waiting'
+            thread2.terminate()
+            thread2 = multiprocessing.Process(target=catch_target)
+            thread2.start() 
+        elif s1[1] == "go_home":
+            print("HOME",file=stderr)
+            s1[1] = 'waiting'
+            thread2.terminate()
+            thread2 = multiprocessing.Process(target=go_home )
+            thread2.start()
+    spkr.speak('End')
