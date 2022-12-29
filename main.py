@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
  
+ 
 from time import sleep
 from smbus import SMBus
 from pixycamev3.pixy2 import Pixy2
 from ev3dev2.display import Display
 from ev3dev2.sensor import INPUT_1
+from ev3dev2.sensor import INPUT_1
 from ev3dev2.port import LegoPort
 from ev3dev2.sound import Sound
 from sys import stderr
+from Robot import Robot
 from Robot import Robot
 import multiprocessing 
 from time import sleep
@@ -159,14 +162,19 @@ def go_home():
 
 def find_target():
     first_time = True
+def find_target():
+    first_time = True
     while True:
         # Clear display
+        lcd.clear()
         lcd.clear()
         # Request block
         
         bus.write_i2c_block_data(address, 0, data)
         # Read block
         block = bus.read_i2c_block_data(address, 0, 20)
+        s1[0] = block
+        # print(block,file=stderr)
         s1[0] = block
         # print(block,file=stderr)
         # Extract data
