@@ -11,12 +11,18 @@ from sys import stderr
 from Robot import Robot
 import multiprocessing 
 from time import sleep
+from serveur import ExchangeWithUser
+import threading
+
 
 # Initalize Class
 robot = Robot()
 global state_of_the_procedure 
 state_of_the_procedure = 'start'
-mode_calibration = False 
+mode_calibration = True
+
+exc = ExchangeWithUser()  # class à initialiser dans le code de Tobor
+
 
 # initialization of the pixy
 pixy2 = Pixy2(port=1, i2c_address=0x54)
@@ -60,8 +66,25 @@ def path_1():
         robot.turn_left(0)
     return
 
+def test():
+    
+    print("start",file=stderr)
+    while not exc.connected :
+        print(exc.connected,file=stderr)
+    while not exc.myThread.send_rec_data.getDataRec:
+        pass
+    print("debut",file=stderr)
+    exc.myThread.send_rec_data.reset_previous_data_()    
+    exc.message_to_send("?")
+    while exc.myThread.send_rec_data.getDataRec is None : 
+        pass
+    print("Tobor a recu"+exc.myThread.send_rec_data.getDataRec,file=stderr)  
+
+
+
 def path_2():
     # efficient track
+
     robot.turn_right(45)
     robot.move_target_forward(400)
     robot.turn_right(405)
@@ -186,6 +209,9 @@ def find_target():
 if mode_calibration == True:
 
     print(robot.get_us_value(),file = stderr )
+    th1 = threading.Thread(target=exc.launch)
+    th1.start()
+    test()
     # robot.turn_right_with_precision()
     # robot.turn_right_with_precision()
     # robot.turn_right_with_precision()
@@ -213,9 +239,14 @@ else:
     spkr.speak('Start')  
 
     # Lancement de la procédure
+    
+
     thread1 = multiprocessing.Process(target=find_target)
     thread1.start()
     thread2 = multiprocessing.Process(target=path_2)
+    th3 = multiprocessing.Process(target=exc.launch)
+    th3.start()  # lancement de l'échange
+
     while True:
         if s1[1] == "start" :
             print("start",file=stderr)
