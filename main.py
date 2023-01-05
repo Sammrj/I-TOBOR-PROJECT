@@ -11,7 +11,6 @@ from ev3dev2.port import LegoPort
 from ev3dev2.sound import Sound
 from sys import stderr
 from Robot import Robot
-from Robot import Robot
 import multiprocessing 
 from time import sleep
 from serveur import ExchangeWithUser
@@ -22,7 +21,7 @@ import threading
 robot = Robot()
 global state_of_the_procedure 
 state_of_the_procedure = 'start'
-mode_calibration = True
+mode_calibration = False
 
 exc = ExchangeWithUser()  # class à initialiser dans le code de Tobor
 
@@ -47,8 +46,26 @@ s1 = manager.list()
 s1.append(0)
 s1.append(state_of_the_procedure)
 
+def send_message(message):
+    
+    print("start sending a message",file=stderr)
+    while not exc.connected :
+        print(exc.connected,file=stderr)
+    while not exc.myThread.send_rec_data.getDataRec:
+        pass
+    print("debut",file=stderr)
+    exc.myThread.send_rec_data.reset_previous_data_()    
+    exc.message_to_send(message)
+    while exc.myThread.send_rec_data.getDataRec is None : 
+        pass
+    print("Tobor a recu"+exc.myThread.send_rec_data.getDataRec,file=stderr)
+    if exc.myThread.send_rec_data.getDataRec == "OK":
+        return True  
+    elif exc.myThread.send_rec_data.getDataRec == "No" :
+        return False
+
 def path_1():
-    # Snack track
+    # Snake track
     while True:
         angle = 90
         robot.move_forward()
@@ -65,24 +82,10 @@ def path_1():
             # state_of_the_procedure
             print("path is over",file=stderr)
             s1[1] = 'go_home'
+            
         robot.move_target_forward(150)
         robot.turn_left(0)
     return
-
-def test():
-    
-    print("start",file=stderr)
-    while not exc.connected :
-        print(exc.connected,file=stderr)
-    while not exc.myThread.send_rec_data.getDataRec:
-        pass
-    print("debut",file=stderr)
-    exc.myThread.send_rec_data.reset_previous_data_()    
-    exc.message_to_send("?")
-    while exc.myThread.send_rec_data.getDataRec is None : 
-        pass
-    print("Tobor a recu"+exc.myThread.send_rec_data.getDataRec,file=stderr)  
-
 
 
 def path_2():
@@ -91,10 +94,12 @@ def path_2():
     robot.turn_right(45)
     robot.move_target_forward(400)
     robot.turn_right(405)
+    robot.angle = 405
     sleep(1.0)
     if s1[1] != 'go_to_target' :
         # state_of_the_procedure
         robot.turn_left(0)
+        sleep(2)
         print("path is over",file=stderr)
         s1[1] = 'go_home'
     return
@@ -115,14 +120,18 @@ def path_3():
             print("path is over",file=stderr)
             s1[1] = 'go_home'
         angle = angle + 90
-        distance = distance - (distance*(20/100))
+        distance = distance - (distance*(30/100))
     return
+
+
+
 
 def go_to_target():
         robot.stop()
         sleep(1);
         # spkr.speak("go to target")
-        while robot.get_us_value()>8:
+        while robot.get_us_value()>10:
+            print("distance us = "+str(robot.get_us_value()),file=stderr)
             current_angle = robot.get_angle_value()
             x = s1[0][8]
             y = s1[0][10]
@@ -130,14 +139,14 @@ def go_to_target():
             if sigs == s1[0][7]*256 + s1[0][6]:
                 # target detected, control motors
                 print("x : "+str(x),file=stderr)
-                if x > 140 and  x < 150:
+                if x > 140 and  x < 160:
                     print("inside",file=stderr)
                     robot.move_forward()
                 elif x <= 140:
                     print("right",file=stderr)
                     print("current_angle : "+str(current_angle),file=stderr)
                     robot.turn_right_with_precision()
-                elif x >= 150 :
+                elif x >= 160 :
                     print("left",file=stderr)
                     robot.turn_left_with_precision()
                     
@@ -152,16 +161,15 @@ def go_to_target():
 def catch_target():
     robot.catch_target();
     s1[1] = 'go_home'
+
 def go_home():
-        
+
     robot.turn_right(180)
     robot.move_forward()
     robot.turn_right(270)
     robot.move_forward()
     return
 
-def find_target():
-    first_time = True
 def find_target():
     first_time = True
     while True:
@@ -216,19 +224,21 @@ def find_target():
 # MAIN
 if mode_calibration == True:
 
-    print(robot.get_us_value(),file = stderr )
-    th1 = threading.Thread(target=exc.launch)
-    th1.start()
-    test()
+
+    # print(robot.get_us_value(),file = stderr )
+    # th1 = threading.Thread(target=exc.launch)
+    # th1.start()
+    # message = "Choisissez vous le chemin Snack Trail ?"
+    # send_message(message)
     # robot.turn_right_with_precision()
     # robot.turn_right_with_precision()
     # robot.turn_right_with_precision()
     # robot.catch_target()
     # robot.drop_target()
-    # angle = 90
-    # robot.move_target_forward(150)
-    # robot.turn_right(angle)
-    # robot.move_target_forward(150)
+    angle = 90
+    robot.move_target_forward(250)
+    robot.turn_right(angle)
+    
     # robot.turn_right(angle*2)
     # robot.move_target_forward(150)
     # robot.turn_right(angle*3)
@@ -243,40 +253,80 @@ if mode_calibration == True:
     # robot.turn_left(angle*3)
     # robot.move_target_forward(150)
     # robot.turn_left(angle*4)
-else:
-    spkr.speak('Start')  
+else:  
 
     # Lancement de la procédure
-    
-
     thread1 = multiprocessing.Process(target=find_target)
     thread1.start()
-    thread2 = multiprocessing.Process(target=path_2)
+    # thread2 = multiprocessing.Process(target=path_2)
     th3 = multiprocessing.Process(target=exc.launch)
     th3.start()  # lancement de l'échange
-
+    print("debut",file=stderr)
     while True:
+        
         if s1[1] == "start" :
             print("start",file=stderr)
             s1[1] = 'waiting'
-            thread2 = multiprocessing.Process(target=path_2)
-            thread2.start()
+            th1 = threading.Thread(target=exc.launch)
+            th1.start()
+            
+            message = "Do you choose the snake path?"
+            response = send_message(message)
+            
+            if response == True:    
+                message = "Selected snake path"
+                response = send_message(message)
+                thread2 = multiprocessing.Process(target=path_1)
+                thread2.start()
+                print("Path 1",file=stderr)
+            else :
+                message = "Do you choose the snail path?"
+                response = send_message(message)
+
+                if response == True: 
+                    message = "Selected snail path"
+                    response = send_message(message)   
+                    thread2 = multiprocessing.Process(target=path_3)
+                    thread2.start()
+                    print("Path 3",file=stderr)
+                else:
+                    message = "Selected star path"
+                    response = send_message(message)
+                    thread2 = multiprocessing.Process(target=path_2)
+                    thread2.start()
+                    print("Path 2",file=stderr)
+
         elif s1[1] == "go_to_target":
             print("FIND",file=stderr)
             s1[1] = 'waiting'
             thread2.terminate()
             thread2 = multiprocessing.Process(target=go_to_target)
             thread2.start()
+
+            message = "the object has been detected"
+            response = send_message(message)
+
+            message = "Go to target"
+            response = send_message(message)
+
+            
+
         elif s1[1] == "catch_target":
+
+            message = "The object was caught"
+            response = send_message(message)
             print("CATCH",file=stderr)
             s1[1] = 'waiting'
             thread2.terminate()
             thread2 = multiprocessing.Process(target=catch_target)
-            thread2.start() 
+            thread2.start()
+
         elif s1[1] == "go_home":
+            message = "go back to starting point"
+            response = send_message(message)
             print("HOME",file=stderr)
             s1[1] = 'waiting'
             thread2.terminate()
-            thread2 = multiprocessing.Process(target=go_home )
+            thread2 = multiprocessing.Process(target=go_home)
             thread2.start()
     spkr.speak('End')
