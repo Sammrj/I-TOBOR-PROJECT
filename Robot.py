@@ -48,11 +48,9 @@ class Robot:
     tank_drive.gyro.reset()
     # def __init__(self):
     #     self.compensation_right = 50
-        
 
-    def __init__(self, ):
-        self.angle = 0
-        
+    global angletest
+    angletest = 0;        
 
     def left_rotation(self,angle):
         left_motor.on_for_degrees(25,angle)
@@ -64,7 +62,9 @@ class Robot:
     
     def __init__(self):
         "Initialization"
-        odo = Odometry(right_motor);
+        self.odo = Odometry(right_motor)
+        self.angle = 0
+        self.tank_drive = MoveDifferential(OUTPUT_B, OUTPUT_C,EV3Tire,D_WHEEL_MM)
 
     def get_angle_value(self):
         return tank_drive.gyro.angle
@@ -81,7 +81,7 @@ class Robot:
         # odometry
         right_degree_at_start = right_motor.position *(360 / right_motor.count_per_rot)
         # -----------
-        tank_drive.turn_right(10,5, brake=True, block=True)
+        tank_drive.turn_right(-10,5, brake=True, block=True)
         # odometry
         right_degree_at_end = right_motor.position *(360 / right_motor.count_per_rot)
         # odo.update_compensation(right_degree_at_start,right_degree_at_end)
@@ -93,13 +93,26 @@ class Robot:
         right_degree_at_start = right_motor.position *(360 / right_motor.count_per_rot)
         # -----------
 
-        tank_drive.turn_left(10,5, brake=True, block=True)
+        tank_drive.turn_left(-10,5, brake=True, block=True)
         
         # odometry
         right_degree_at_end = right_motor.position *(360 / right_motor.count_per_rot)
         # odo.update_compensation(right_degree_at_start,right_degree_at_end)
         # -----------
         
+        return
+
+    def move_forward_with_us_sensor(self):
+        odo.update_odometry(tank_drive.gyro.angle)
+        tank_drive.off()
+        distance = us.value()/10
+        tank_drive.on(25,25)
+        while distance > 30:
+            distance = us.value()/10
+            # print("ir distance : "+str(distance),file=stderr)
+            # sprint(s1[0], file=stderr) 
+        tank_drive.off()
+        odo.update_odometry(tank_drive.gyro.angle)
         return
     
     def move_forward(self):
@@ -115,12 +128,21 @@ class Robot:
         odo.update_odometry(tank_drive.gyro.angle)
         return
 
-    def move_target_forward(self,target):
+    def move_target_forward(self,target,brake = True):
         odo.update_odometry(tank_drive.gyro.angle)
         tank_drive.off()
         distance = ir.value()
         if distance >= 20 :
             tank_drive.on_for_distance(25, target, brake=True, block=True)
+        odo.update_odometry(tank_drive.gyro.angle)
+        return
+    
+    def move_target_forward_with_us_sensor(self,target):
+        odo.update_odometry(tank_drive.gyro.angle)
+        tank_drive.off()
+        distance = us.value()/10
+        if distance >= 4 :
+            tank_drive.on_for_distance(25, target, brake=False, block=True)
         odo.update_odometry(tank_drive.gyro.angle)
         return
 
@@ -130,12 +152,13 @@ class Robot:
         return
 
     def turn_right(self,target):
+        global angletest
         # ----------
         right_degree_at_start = right_motor.position *(360 / right_motor.count_per_rot)
         # -----------
         angle1 = tank_drive.gyro.angle
         if target > angle1 :
-            tank_drive.on(-10,10)
+            tank_drive.on(-7,7)
             print("angle de depart"+str(tank_drive.gyro.angle),file=stderr)
             print("target : "+str(target),file=stderr)
             while tank_drive.gyro.angle < target :
@@ -143,7 +166,8 @@ class Robot:
                 print(angle1,file=stderr)
             tank_drive.off()
             angle2 = tank_drive.gyro.angle
-
+            angletest = tank_drive.gyro.angle
+            print( "valeur angle"+str(angletest),file=stderr)
             # gestion de la positon des roues
             right_degree_at_end = right_motor.position *(360 / right_motor.count_per_rot)
             # calcul de compensation
@@ -158,7 +182,7 @@ class Robot:
         return
 
     def turn_left(self,target):
-        
+        global angletest
         #  
         right_degree_at_start = right_motor.position *(360 / right_motor.count_per_rot)
         # fin
@@ -166,12 +190,14 @@ class Robot:
         if target < angle1 :
             print("angle de depart"+str(tank_drive.gyro.angle),file=stderr)
             print("target : "+str(target),file=stderr)
-            tank_drive.on(10,-10)
+            tank_drive.on(7,-7)
             
             while tank_drive.gyro.angle > target :
                 angle1 = tank_drive.gyro.angle
                 print(angle1,file=stderr)
                 pass
+            angletest = tank_drive.gyro.angle
+            print( "valeur angle"+str(angletest),file=stderr)
             tank_drive.off()
             angle2 = tank_drive.gyro.angle
             print("target : "+str(target),file=stderr)
@@ -207,9 +233,38 @@ class Robot:
             else:
                 return True
         elif string =="snail_track":
-            if distance < 50:
+            if distance < 150:
+                print("distance ispathover : "+str(distance),file=stderr )
                 return True
             else:
                 return False
-            
-            
+
+    def go_home(self):
+        angle = tank_drive.gyro.angle
+        print("angle initial : "+str(angle),file=stderr)
+        isBetween = True
+        i = 0
+        while isBetween :
+            if 0+i*360 <= angle <360 + i*360 :      
+                print("inside")  
+                print("i = "+str(i))
+                self.turn_right(180+i*360)
+                self.move_forward()
+                self.turn_right(270 +i*360)
+                self.move_forward()
+                isBetween = False
+            elif 0 -i*360 > angle >= -360 - i*360 :
+                print("inside2")
+                print("i = "+str(i))
+                self.turn_right(-180-i*360)
+                self.move_forward()
+                self.turn_right(-270 -i*360)
+                self.move_forward()
+                isBetween = False
+            else:
+                print("print i"+str(i))
+                i = i + 1
+        return
+
+                
+                

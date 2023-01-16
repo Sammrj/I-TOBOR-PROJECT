@@ -14,7 +14,7 @@ class Odometry:
         self.old_compensation = 0
         self.compensation = 0
 
-    def           (self,angle = 0):
+    def update_odometry(self,angle = 0):
         
         angle = radians(angle)
         right_degree = (self.right_motor.position*(360 / self.right_motor.count_per_rot)) - self.compensation_right

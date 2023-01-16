@@ -23,8 +23,11 @@ global state_of_the_procedure
 state_of_the_procedure = 'start'
 mode_calibration = False
 
+# Initalize communication with interface
 exc = ExchangeWithUser()  # class à initialiser dans le code de Tobor
 
+# variable
+# angle = 0
 
 # initialization of the pixy
 pixy2 = Pixy2(port=1, i2c_address=0x54)
@@ -50,7 +53,8 @@ def send_message(message):
     
     print("start sending a message",file=stderr)
     while not exc.connected :
-        print(exc.connected,file=stderr)
+        # print(exc.connected,file=stderr)
+        pass
     while not exc.myThread.send_rec_data.getDataRec:
         pass
     print("debut",file=stderr)
@@ -94,7 +98,8 @@ def path_2():
     robot.turn_right(45)
     robot.move_target_forward(400)
     robot.turn_right(405)
-    robot.angle = 405
+    # robot.angle = 405
+    # angle = 405
     sleep(1.0)
     if s1[1] != 'go_to_target' :
         # state_of_the_procedure
@@ -108,19 +113,21 @@ def path_3():
     # snail track
     angle = 90
     distance = 400
+    i = 0
     while True:
         robot.move_target_forward(distance)
-        robot.turn_right(angle)
+        robot.turn_right(angle +i*90)
         robot.move_target_forward(distance)
-        robot.turn_right(angle)
+        robot.turn_right(angle+90*(i+1))
         robot.move_target_forward(distance)
-        robot.turn_right(angle)
+        robot.turn_right(angle+90*(i+2))
         if robot.isPathOver("snail_track", distance):
             # state_of_the_procedure
             print("path is over",file=stderr)
             s1[1] = 'go_home'
         angle = angle + 90
         distance = distance - (distance*(30/100))
+        i = i + 3
     return
 
 
@@ -130,29 +137,35 @@ def go_to_target():
         robot.stop()
         sleep(1);
         # spkr.speak("go to target")
-        while robot.get_us_value()>10:
+        while robot.get_us_value()>5:
+            
             print("distance us = "+str(robot.get_us_value()),file=stderr)
             current_angle = robot.get_angle_value()
-            x = s1[0][8]
+            x = s1[0][9]*256 + s1[0][8]
             y = s1[0][10]
             robot.stop()
+            print("x : "+str(x),file=stderr)
             if sigs == s1[0][7]*256 + s1[0][6]:
                 # target detected, control motors
-                print("x : "+str(x),file=stderr)
-                if x > 140 and  x < 160:
+
+                
+                if x > 145 and  x < 185:
+                    # MOVE FORWARD
                     print("inside",file=stderr)
-                    robot.move_forward()
-                elif x <= 140:
+                    robot.move_target_forward_with_us_sensor(50)
+                    
+                elif x >= 165 and x <=320:
                     print("right",file=stderr)
                     print("current_angle : "+str(current_angle),file=stderr)
                     robot.turn_right_with_precision()
-                elif x >= 160 :
+                elif x<=145 and x>=0 :
                     print("left",file=stderr)
                     robot.turn_left_with_precision()
                     
             else:
                 # target not detected, stop motors
                 robot.stop()
+                print("not detected")
             
         robot.stop()
         s1[1] = "catch_target"
@@ -162,13 +175,28 @@ def catch_target():
     robot.catch_target();
     s1[1] = 'go_home'
 
-def go_home():
+# def go_home():
+#     print("angle initial : "+str(robot.angle),file=stderr)
 
-    robot.turn_right(180)
-    robot.move_forward()
-    robot.turn_right(270)
-    robot.move_forward()
-    return
+#     isBetween = False
+#     i = 0
+    
+#     while isBetween :
+#         if 0+i*360<angle<360 + i*360 :        
+#             robot.turn_right(180+i*360)
+#             robot.move_forward()
+#             robot.turn_right(270 +i*360)
+#             robot.move_forward()
+#             isBetween = False
+#         elif 0 -i*360 >= angle >= -360 - i*360 :
+#             robot.turn_right(-180-i*360)
+#             robot.move_forward()
+#             robot.turn_right(-270 -i*360)
+#             robot.move_forward()
+#             isBetween = False
+#         else:
+#             i = i + 1
+#     return
 
 def find_target():
     first_time = True
@@ -186,29 +214,29 @@ def find_target():
         s1[0] = block
         # print(block,file=stderr)
         # Extract data
-        sig = block[7]*256 + block[6]
-        x = block[9]*256 + block[8]
-        y = block[11]*256 + block[10]
-        w = block[13]*256 + block[12]
-        h = block[15]*256 + block[14]
-        # Scale to resolution of EV3 display:
-        # Resolution Pixy2 while color tracking; (316x208)
-        # Resolution EV3 display: (178x128)
-        x *= 0.6
-        y *= 0.6
-        w *= 0.6
-        h *= 0.6
-        # Calculate rectangle to draw on display
-        dx = int(w/2)
-        dy = int(h/2)
-        xa = x - dx
-        ya = y + dy
-        xb = x + dx
-        yb = y - dy
-        # Draw rectangle on display
-        # lcd.draw.rectangle((xa, ya, xb, yb), fill='black')
-        # Update display to how rectangle
-        # lcd.update()
+        # sig = block[7]*256 + block[6]
+        # x = block[9]*256 + block[8]
+        # y = block[11]*256 + block[10]
+        # w = block[13]*256 + block[12]
+        # h = block[15]*256 + block[14]
+        # # Scale to resolution of EV3 display:
+        # # Resolution Pixy2 while color tracking; (316x208)
+        # # Resolution EV3 display: (178x128)
+        # x *= 0.6
+        # y *= 0.6
+        # w *= 0.6
+        # h *= 0.6
+        # # Calculate rectangle to draw on display
+        # dx = int(w/2)
+        # dy = int(h/2)
+        # xa = x - dx
+        # ya = y + dy
+        # xb = x + dx
+        # yb = y - dy
+        # # Draw rectangle on display
+        # # lcd.draw.rectangle((xa, ya, xb, yb), fill='black')
+        # # Update display to how rectangle
+        # # lcd.update()
         
         # print("s1[0][8]"+str(s1[0][8]),file=stderr)
         # print("y"+str(block[10]),file=stderr)
@@ -223,7 +251,12 @@ def find_target():
 
 # MAIN
 if mode_calibration == True:
-
+    thread1 = multiprocessing.Process(target=find_target)
+    thread1.start()
+    print("FIND",file=stderr)
+    s1[1] = 'waiting'
+    thread2 = multiprocessing.Process(target=go_to_target)
+    thread2.start()
 
     # print(robot.get_us_value(),file = stderr )
     # th1 = threading.Thread(target=exc.launch)
@@ -235,10 +268,10 @@ if mode_calibration == True:
     # robot.turn_right_with_precision()
     # robot.catch_target()
     # robot.drop_target()
-    angle = 90
-    robot.move_target_forward(250)
-    robot.turn_right(angle)
-    
+    # angle = 90
+    # robot.move_target_forward(250)
+    # robot.turn_right(angle)
+    # 
     # robot.turn_right(angle*2)
     # robot.move_target_forward(150)
     # robot.turn_right(angle*3)
@@ -259,9 +292,9 @@ else:
     thread1 = multiprocessing.Process(target=find_target)
     thread1.start()
     # thread2 = multiprocessing.Process(target=path_2)
-    th3 = multiprocessing.Process(target=exc.launch)
-    th3.start()  # lancement de l'échange
-    print("debut",file=stderr)
+    # th3 = multiprocessing.Process(target=exc.launch)
+    # th3.start()  # lancement de l'échange
+    # print("debut",file=stderr)
     while True:
         
         if s1[1] == "start" :
@@ -327,6 +360,6 @@ else:
             print("HOME",file=stderr)
             s1[1] = 'waiting'
             thread2.terminate()
-            thread2 = multiprocessing.Process(target=go_home)
+            thread2 = multiprocessing.Process(target=robot.go_home)
             thread2.start()
     spkr.speak('End')
