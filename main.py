@@ -1,11 +1,16 @@
 import time  # Gestion du temps
+from random import random
 
+from kivy import app
 # bibliothèque  nécessaire pour la mise en place de la l'interface graphqie
 from kivy.app import App
+from kivy.clock import Clock
 from kivy.properties import ObjectProperty
 from kivy.properties import StringProperty
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
+
+import math
 
 import threading  # Nécessaire pour lancer l'asynchrone
 import socket  # Necessaire pour connecter l'interface graphique (ce script) à TOBOR (notre robot)
@@ -27,6 +32,7 @@ class Config:
     host, port = ("localhost", 4455)  # Infos pour se connecter au serveur localhost =127.0.0.1, info
     numClient = "1"  # Numéro du client,
     size_Buffer_data_rec = 1024  # Nombre de octets max des données venant du serveur
+    caractere_question = "?"
 
 
 class MyWidget(Widget):
@@ -60,6 +66,23 @@ class MyWidget(Widget):
     # Permet de mettre à jour le texte afficher à l'écran quand Tobor envoie un nouveau message
     def set_Tobor_say(self, text):
         self.ids.tobor_say.text = text
+        # fait apparaître ou disparaître les boutons suivants les messages recus de Tobor
+        if Config.caractere_question in text:
+            self.ids.ok_button.background_color = 1, 0, 1, 1
+            self.ids.ok_button.text = "OK"
+            self.ids.ok_button.disabled = False
+
+            self.ids.no_button.background_color = 1, 0, 1, 1
+            self.ids.no_button.text = "NO"
+            self.ids.no_button.disabled = False
+
+        else:
+            self.ids.ok_button.background_color = 0, 0, 0, 0
+            self.ids.ok_button.text = ""
+            self.ids.ok_button.disabled = True
+            self.ids.no_button.background_color = 0, 0, 0, 0
+            self.ids.no_button.text = ""
+            self.ids.no_button.disabled = True
 
 
 class ToborInterface(App):
@@ -81,6 +104,7 @@ class ToborInterface(App):
         # Connexion avec TOBOR en asynchrone afin d'échanger des données, tout en rafraichissant l'interface graphique
         thread_tobor_say = threading.Thread(target=ExchangeBetweenToborAndInterface(my_widget).initialize_exchange)
         thread_tobor_say.start()
+
 
         return my_widget
 
@@ -196,10 +220,10 @@ class ExchangeBetweenToborAndInterface:
         """
         Gestion des messages reçu du serveur (TOBOR)
         """
-        dataRecu = socket.recv(Config.size_Buffer_data_rec)  # On s'attends à recevoir une donnée de 1024 octets maximum
+        dataRecu = socket.recv(Config.size_Buffer_data_rec)  # On s'attend à recevoir une donnée de 1024 octets maximum
         dataRecu = dataRecu.decode("utf8")  # Décodage de la donnée réçu
         self.my_widget.set_Tobor_say(f"Reçu : {dataRecu}")  # Affichage sur l'écran
-        if "0" not in dataRecu: # Si ce n'est pas une question
+        if Config.caractere_question not in dataRecu:  # Si ce n'est pas une question
             self.rep_auto = "auto"
 
 
