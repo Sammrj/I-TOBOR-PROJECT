@@ -1,0 +1,71 @@
+<Button>
+    background_color:1,0,1,1
+    size_hint_max_y:50
+    font_size:15
+
+
+
+GridLayout:
+
+
+<MyWidget>:
+    BoxLayout:
+        tobor_say:tobor_say
+        ok_button:ok_button
+        no_button:no_button
+        pause_button:pause_button
+        play_button:play_button
+        size:root.width, root.height
+        orientation:"vertical"
+        GridLayout
+
+            rows:2
+            cols:1
+            Label:
+
+                id:tobor_say
+                text:root.tobor_say
+                text_size:self.size
+                font_size :22
+                halign:"center"
+                valign:"center"
+
+
+
+
+            GridLayout:
+                padding:root.window_size_height_percent,0,root.window_size_height_percent,0
+                spacing:20
+                rows:1
+                cols:2
+                Button:
+                    opacity:0
+                    desabled:True
+                    id:pause_button
+                    text:"Pause"
+                    on_press:root.pause_pressed()
+                Button:
+                    opacity:0
+                    desabled:True
+                    id:play_button
+                    text:"Continue"
+                    on_press:root.continue_pressed()
+        GridLayout:
+            spacing:20
+            padding:root.window_size_height_percent,0,root.window_size_height_percent,10
+            orientation:"lr-bt"
+            rows:1
+            cols:2
+            Button:
+                id: ok_button
+                text:"OK"
+                on_press:root.ok_pressed()
+            Button:
+                id:no_button
+                text:"NO"
+                on_press:root.no_pressed()
+
+
+
+
+

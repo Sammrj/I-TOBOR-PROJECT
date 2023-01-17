@@ -1,38 +1,208 @@
-#!/usr/bin/env pybricks-micropython
-from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor as Motor
-from pybricks.parameters import Port
-from pybricks.parameters import Direction
-from pybricks.tools import wait
+import time  # Gestion du temps
 
-# Create your objects here
+# bibliothèque  nécessaire pour la mise en place de la l'interface graphqie
+from kivy.app import App
+from kivy.properties import ObjectProperty
+from kivy.properties import StringProperty
+from kivy.uix.widget import Widget
+from kivy.core.window import Window
 
+import threading  # Nécessaire pour lancer l'asynchrone
+import socket  # Necessaire pour connecter l'interface graphique (ce script) à TOBOR (notre robot)
 
-
-
-# Initialize the EV3 Brick.
-ev3 = EV3Brick()
-
-# Initialize a motor at port B.
-test_motor = Motor(Port.B)
-
-#ev3.light.on(color)
-#ev3.speaker.say("SAMUEL... SAMUEL, ")
-test_motor.run(50000)
-
-wait(30000)
-wait(30000)
+socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Création d'un socket de communication
 
 
-# Write your program here
+class Config:
+    """
+    class contenant des infos de configurations
+    """
+    # Pour les décomptes
+    time_count_down_for_connection = 60  # Temps d'attente pour une se connecter au serveur
+    time_count_down_deconnection = 10  # Décompte avant la fermeture de la fenêtre après une deconnexion/ou impossibilté de se connecter au serveur
 
-# Play a sound.
-ev3.speaker.beep("test")
+    tobor_say_str_init = "Veillez Patienter..."
 
-# Run the motor up to 500 degrees per second. To a target angle of 90 degrees.
+    # Infos de config serveur-client
+    host, port = ("localhost", 4455)  # Infos pour se connecter au serveur localhost =127.0.0.1, info
+    numClient = "1"  # Numéro du client,
+    size_Buffer_data_rec = 1024  # Nombre de octets max des données venant du serveur
 
-#ev3.speaker.beep()
-#test_motor.run_target(5000, 30)
 
-# Play another beep sound.
-#ev3.speaker.beep(frequency=1000, duration=500)
+class MyWidget(Widget):
+    """
+    class permettant de gérer l'interface graphique :
+    - positionnement des widgets(déclarer dans le fichier toborinterface.kv),
+    - gestion des interractions de l'utilisateur avec l'interface graphique (appuie sur les boutons)
+    Cette class n'a pas besoin de constructeur
+    """
+
+    tobor_say = StringProperty('')  # Contiendra le texte à afficher à l'utilisateur lorsque  Tobor enverra  un message
+    tobor_say = Config.tobor_say_str_init  # Initialisation
+
+    ok_button = ObjectProperty(None)
+    no_button = ObjectProperty(None)
+
+    btn_pressed = None  # Contiendra le nom du bouton appuyé par l'utilisateur (OK ou No)
+
+    # Nécessaire pour gérer le positionnement des élements dans l'interface graphique
+    window_size_height_percent = ObjectProperty(None)
+    window_size_height_percent = 5 * Window.size[0] / 100
+
+    # Executé quand l'utilisateur appuie sur le bouton OK
+    def ok_pressed(self):
+        self.btn_pressed = "OK"
+
+    # Executé quand l'utilisateur appuie sur le bouton No
+    def no_pressed(self):
+        self.btn_pressed = "No"
+
+    # Permet de mettre à jour le texte afficher à l'écran quand Tobor envoie un nouveau message
+    def set_Tobor_say(self, text):
+        self.ids.tobor_say.text = text
+
+
+class ToborInterface(App):
+    """
+    class permettant de générer l'interface utilisateur et de lancer la communication avec Tobor en asynchrone
+    Constructeur non necessaire grâce à l'héritage de la class App
+    """
+
+    fin_communication: bool = False  # Passe à true, à la fin de la communication
+
+    def build(self):
+        """
+        Rédéfinition de la fonction build, qui existe dans la class mère App,
+        cette fonction permet de générer la fênetre de l'interface graphique et de l'afficher à l'écran
+        :return: L'interface graphique
+        """
+        my_widget = MyWidget()  # Instantiation de l'interface graphique
+
+        # Connexion avec TOBOR en asynchrone afin d'échanger des données, tout en rafraichissant l'interface graphique
+        thread_tobor_say = threading.Thread(target=ExchangeBetweenToborAndInterface(my_widget).initialize_exchange)
+        thread_tobor_say.start()
+
+        return my_widget
+
+
+class ExchangeBetweenToborAndInterface:
+    """
+    class gérant la communication entre TOBOR (Le serveur) et l'interface graphique (le client)
+    """
+
+    rep_auto = None
+
+    def __init__(self, widget: MyWidget):
+        self.my_widget = widget
+        self.time_sec = None
+        self.stop_time_sec = False;
+
+    def count_down_for_connection(self, time_user=Config.time_count_down_for_connection):
+        self.time_sec = time_user
+        while self.time_sec > 0:
+            time.sleep(1)
+            self.time_sec -= 1
+            if self.stop_time_sec:
+                self.time_sec = 0
+                break
+
+    def reset_time_sec(self):
+        self.stop_time_sec = True
+        self.time_sec = Config.time_count_down_deconnection;
+
+    def down_count_deconnection(self):
+        max_sec = Config.time_count_down_deconnection
+        while max_sec > 0:
+            self.my_widget.set_Tobor_say(
+                f"Déconnexion du serveur/ou impossible de s'y connecter,\n Cette fenêtre va se fermer dans {max_sec} secondes")
+            time.sleep(1)
+            max_sec -= 1
+
+    def initialize_exchange(self):
+        """
+        Connexion de l'interface graphique avec Tobor-> connexion client-serveur
+        """
+        th1 = threading.Thread(target=self.count_down_for_connection)
+        th1.start()
+        while True:
+            try:
+                socket.connect((Config.host, Config.port))  # Connexion au serveur
+                # data_to_send: str = f"Hello, je suis le client {Config.numClient}"  # Message d'initialisation à envoyer au serveur
+                # data_to_send = data_to_send.encode("utf8")  # Encodage du message en utf8
+                # socket.sendall(data_to_send)  # Envoie du message
+                self.reset_time_sec()
+                # Affichage du succès de la connexion à l'utilisateur
+                self.my_widget.set_Tobor_say("Connexion établie... En attente d'un message de Tobor")
+                # Lancement des échanges client-serveur, le script passera au break en cas de fin de connexion
+                self.question_answer_com()
+                break
+
+            except ConnectionRefusedError:
+                if self.time_sec != 0:
+                    self.my_widget.set_Tobor_say(f"Connexion refusée, le serveur n'est pas démarrée ou vérifier les "
+                                                 f"valeurs de host et port \n Attente : {self.time_sec}")
+                else:
+                    self.down_count_deconnection()
+
+            except:
+                if self.time_sec != 0:
+                    self.my_widget.set_Tobor_say(f"Impossible de se connecter au serveur \n Attente :{self.time_sec}")
+                else:
+                    self.down_count_deconnection()
+
+            if self.time_sec < 1:
+                break
+
+        socket.close()
+        App.get_running_app().stop()
+        Window.close()
+        print("quitter")
+
+    def question_answer_com(self):
+        """
+        Cette fonction assure les échanges de données server-client tant que la connexion n'est pas rompue
+        """
+        while True:
+            # Lancement en ansynchrone de la fonction des fonctions d'envoie et de receptions de données
+            self.rec_data()
+            self.send_data()
+            # thread_rec = threading.Thread(target=self.rec_data())
+            # thread_send = threading.Thread(target=self.send_data())
+            # thread_rec.start()
+            # thread_send.start()
+
+    def send_data(self):
+        """
+        Gestion des envois de données (automatique ou bouton appuyé par l'utilisateur) vers le serveur
+        """
+        if self.rep_auto is None:  # Si on attend une réponse de l'utilisateur
+            while True:  # Listen... l'aapuie des boutons de l'interface graphique
+                if self.my_widget.btn_pressed is not None:  # Si l'utilisateur a appuyé  sur un bouton
+                    data_to_send = str(self.my_widget.btn_pressed)  # Recupération de la clé associée au bouton appuyé
+                    data_to_send = data_to_send.encode("utf8")  # encodage du message en utf8
+                    socket.sendall(data_to_send);  # envoie du message
+                    self.my_widget.set_Tobor_say(f"Envoyé : {self.my_widget.btn_pressed}")
+                    self.my_widget.btn_pressed = None  # Plus de bouton appuyé (réinitialisation)
+                    break  # quitter la boucle
+        else:  # En cas de réponse auto
+            data_to_send = self.rep_auto  # Recupération de la clé associée au bouton appuyé
+            data_to_send = data_to_send.encode("utf8")  # encodage du message en utf8
+            socket.sendall(data_to_send)  # envoie du message
+
+        self.rep_auto = None
+        time.sleep(1)  # pour test
+
+    def rec_data(self):
+        """
+        Gestion des messages reçu du serveur (TOBOR)
+        """
+        dataRecu = socket.recv(Config.size_Buffer_data_rec)  # On s'attends à recevoir une donnée de 1024 octets maximum
+        dataRecu = dataRecu.decode("utf8")  # Décodage de la donnée réçu
+        self.my_widget.set_Tobor_say(f"Reçu : {dataRecu}")  # Affichage sur l'écran
+        if "0" not in dataRecu: # Si ce n'est pas une question
+            self.rep_auto = "auto"
+
+
+if __name__ == "__main__":
+    # test de ce script
+    ToborInterface().run()
