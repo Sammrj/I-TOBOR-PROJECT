@@ -26,7 +26,7 @@ class Config:
     time_count_down_for_connection = 60  # Temps d'attente pour une se connecter au serveur
     time_count_down_deconnection = 10  # Décompte avant la fermeture de la fenêtre après une deconnexion/ou impossibilté de se connecter au serveur
 
-    tobor_say_str_init = "Veillez Patienter..."
+    tobor_say_str_init = "please wait a few seconds..."
 
     # Infos de config serveur-client
     host, port = ("localhost", 4455)  # Infos pour se connecter au serveur localhost =127.0.0.1, info
@@ -138,7 +138,7 @@ class ExchangeBetweenToborAndInterface:
         max_sec = Config.time_count_down_deconnection
         while max_sec > 0:
             self.my_widget.set_Tobor_say(
-                f"Déconnexion du serveur/ou impossible de s'y connecter,\n Cette fenêtre va se fermer dans {max_sec} secondes")
+                f"Disconnection to the server/impossible to connect,\n this window will close in {max_sec} seconds")
             time.sleep(1)
             max_sec -= 1
 
@@ -156,21 +156,21 @@ class ExchangeBetweenToborAndInterface:
                 # socket.sendall(data_to_send)  # Envoie du message
                 self.reset_time_sec()
                 # Affichage du succès de la connexion à l'utilisateur
-                self.my_widget.set_Tobor_say("Connexion établie... En attente d'un message de Tobor")
+                self.my_widget.set_Tobor_say("Connection establishes... waiting for Tobor")
                 # Lancement des échanges client-serveur, le script passera au break en cas de fin de connexion
                 self.question_answer_com()
                 break
 
             except ConnectionRefusedError:
                 if self.time_sec != 0:
-                    self.my_widget.set_Tobor_say(f"Connexion refusée, le serveur n'est pas démarrée ou vérifier les "
-                                                 f"valeurs de host et port \n Attente : {self.time_sec}")
+                    self.my_widget.set_Tobor_say(f"Refused connection, the server is not started  or check "
+                                                 f"the value of host and port \n wait : {self.time_sec}")
                 else:
                     self.down_count_deconnection()
 
             except:
                 if self.time_sec != 0:
-                    self.my_widget.set_Tobor_say(f"Impossible de se connecter au serveur \n Attente :{self.time_sec}")
+                    self.my_widget.set_Tobor_say(f"Impossible connection to the server \n wait :{self.time_sec}")
                 else:
                     self.down_count_deconnection()
 
@@ -205,7 +205,7 @@ class ExchangeBetweenToborAndInterface:
                     data_to_send = str(self.my_widget.btn_pressed)  # Recupération de la clé associée au bouton appuyé
                     data_to_send = data_to_send.encode("utf8")  # encodage du message en utf8
                     socket.sendall(data_to_send);  # envoie du message
-                    self.my_widget.set_Tobor_say(f"Envoyé : {self.my_widget.btn_pressed}")
+                    self.my_widget.set_Tobor_say(f"Sent : {self.my_widget.btn_pressed}")
                     self.my_widget.btn_pressed = None  # Plus de bouton appuyé (réinitialisation)
                     break  # quitter la boucle
         else:  # En cas de réponse auto
@@ -222,7 +222,7 @@ class ExchangeBetweenToborAndInterface:
         """
         dataRecu = socket.recv(Config.size_Buffer_data_rec)  # On s'attend à recevoir une donnée de 1024 octets maximum
         dataRecu = dataRecu.decode("utf8")  # Décodage de la donnée réçu
-        self.my_widget.set_Tobor_say(f"Reçu : {dataRecu}")  # Affichage sur l'écran
+        self.my_widget.set_Tobor_say(f"Received : {dataRecu}")  # Affichage sur l'écran
         if Config.caractere_question not in dataRecu:  # Si ce n'est pas une question
             self.rep_auto = "auto"
 
